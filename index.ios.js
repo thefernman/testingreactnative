@@ -55,7 +55,6 @@ class GithubBrowser extends Component{
   }
   }
   onLogin(){
-    console.log('successfully logged in, can show diff view');
     this.setState({isLoggedIn: true});
   }
 

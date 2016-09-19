@@ -1,6 +1,6 @@
-import buffer from 'buffer';
 import { AsyncStorage } from 'react-native';
 var _ = require('lodash');
+var encoding = require('NativeModules').Encoding;
 
 
 const authKey = 'auth';
@@ -30,43 +30,41 @@ class AuthService {
     });
   }
   login(creds, cb){
-      var b = new buffer.Buffer(creds.username +
-          ':' + creds.password);
-      var encodedAuth = b.toString('base64');
-      console.log(encodedAuth);
+      var authStr = creds.username + ':' + creds.password;
+      encoding.base64Encode(authStr, (encodedAuth) => {
+        fetch('https://api.github.com/user',{
+            headers: {
+                'Authorization' : 'Basic ' + encodedAuth
+            }
+        })
+        .then((response)=> {
+            if(response.status >= 200 && response.status < 300){
+                return response;
+            }
 
-      fetch('https://api.github.com/user',{
-          headers: {
-              'Authorization' : 'Basic ' + encodedAuth
-          }
-      })
-      .then((response)=> {
-          if(response.status >= 200 && response.status < 300){
-              return response;
-          }
+            throw {
+                badCredentials: response.status == 401,
+                unknownError: response.status != 401
+            }
+        })
+        .then((response)=> {
+            return response.json();
+        })
+        .then((results)=> {
+          AsyncStorage.multiSet([
+                  [authKey, encodedAuth],
+                  [userKey, JSON.stringify(results)]
+              ], (err)=> {
+                  if(err){
+                      throw err;
+                  }
 
-          throw {
-              badCredentials: response.status == 401,
-              unknownError: response.status != 401
-          }
-      })
-      .then((response)=> {
-          return response.json();
-      })
-      .then((results)=> {
-        AsyncStorage.multiSet([
-                [authKey, encodedAuth],
-                [userKey, JSON.stringify(results)]
-            ], (err)=> {
-                if(err){
-                    throw err;
-                }
-
-                return cb({success: true});
-            })
-      })
-      .catch((err)=> {
-          return cb(err);
+                  return cb({success: true});
+              })
+        })
+        .catch((err)=> {
+            return cb(err);
+        });
       });
   }
 }
